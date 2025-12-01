@@ -290,10 +290,11 @@ Increase maximum iterations:
 python3 code/main.py cdpq --max_iter 200000
 ```
 
-## License
+## Corresponding Authors
 
-To be updated
+Ji Yang, jyang49@uoguelph.ca
+Dan Tulpan, dtulpan@uoguelph.ca
 
-## Contact
-
-To be updated
+Department of Animal Biosciences, 
+Centre for Genetic Improvement of Livestock, 
+University of Guelph, Guelph, ON, N1G 2W1, Canada
