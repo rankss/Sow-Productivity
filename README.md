@@ -292,7 +292,7 @@ python3 code/main.py cdpq --max_iter 200000
 
 ## Corresponding Authors
 
-Ji Yang, jyang49@uoguelph.ca
+Ji Yang, jyang49@uoguelph.ca<br>
 Dan Tulpan, dtulpan@uoguelph.ca
 
 Department of Animal Biosciences, 
