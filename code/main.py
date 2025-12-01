@@ -1,24 +1,35 @@
 # -------------------------------------------------------------------
 # Step 1. Load the datasets
 # -------------------------------------------------------------------
+import argparse
 import pandas as pd
 import numpy as np
-from utils import synthesize_dataset
 
-use_synthetic_data = True
-dataset_name = "cdpq" # "hypor"
-subset = False # For CDPQ Dataset Only
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description="Run machine learning pipeline for sow productivity analysis.")
+parser.add_argument("dataset_name", type=str, choices=['cdpq', 'hypor'], 
+                    help="The dataset to use: 'cdpq' or 'hypor'")
+parser.add_argument("--subset", action='store_true', 
+                    help="Use subset of CDPQ dataset (drops some columns). Only applicable for CDPQ dataset.")
+parser.add_argument("--seed", type=int, default=42, 
+                    help="Random seed for reproducibility (default: 42)")
+parser.add_argument("--n_jobs", type=int, default=1, 
+                    help="Number of parallel jobs for model training (default: 1)")
+parser.add_argument("--max_iter", type=int, default=100000, 
+                    help="Maximum iterations for iterative algorithms (default: 100000)")
 
-if use_synthetic_data:
-    df = synthesize_dataset(dataset_type=dataset_name, n_sows=500, max_parities=8, n_farms=10, random_state=42)
-    print(f"--- Using synthetic '{dataset_name}' dataset ---")
-else:
-    dataset_path = f"raw_data/{dataset_name}_raw_dataset.xlsx"
-    try:
-        df = pd.read_excel(dataset_path)
-    except FileNotFoundError:
-        print(f"Data file not found at: {dataset_path}")
-    print(f"--- Using real '{dataset_name}' dataset ---")
+args = parser.parse_args()
+
+dataset_name = args.dataset_name
+subset = args.subset
+seed = args.seed
+
+dataset_path = f"raw_data/{dataset_name}_raw_dataset.xlsx"
+try:
+    df = pd.read_excel(dataset_path)
+except FileNotFoundError:
+    print(f"Data file not found at: {dataset_path}")
+print(f"--- Using real '{dataset_name}' dataset ---")
 
 figure_directory = f"figures/{dataset_name}/"
 output_directory = f"outputs/{dataset_name}/"
@@ -48,7 +59,7 @@ if dataset_name == "cdpq":
     
     if subset:
         df = df.drop(columns=["Breeding BW", "Farrowing BW", 
-             "Weaning BW", "Breeding BFT", "Farrowing BFT", "Weaning BFT"])
+              "Breeding BFT", "Farrowing BFT"])
         
         dataset_name = "cdpq_subset"
         figure_directory = f"figures/{dataset_name}"
@@ -120,17 +131,14 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from model import Estimator, EstimatorGlobalParameters
 
-seed = 42
-max_iter = int( 1E5 )
-# Define the number of parallel jobs. Use a specific number instead of -1
-# to prevent memory exhaustion on systems with many cores.
-# Adjust this value based on your system's available RAM.
-n_jobs = 1
+seed = args.seed
+n_jobs = args.n_jobs
 model_params = EstimatorGlobalParameters(
     X, y, group, split_method='random' if 'cdpq' in dataset_name else 'logo', 
     random_state=seed, directory=figure_directory, n_jobs=n_jobs
 )
 
+max_iter = args.max_iter
 CLASSIFIERS = {
     "DT": DecisionTreeClassifier(random_state=seed),
     "KNN": KNeighborsClassifier(),
@@ -139,33 +147,6 @@ CLASSIFIERS = {
     "RF": RandomForestClassifier(random_state=seed, n_jobs=n_jobs),
     "SGD": SGDClassifier(random_state=seed, max_iter=max_iter, n_jobs=n_jobs),
     "SVM": SVC(random_state=seed, max_iter=-1),
-}
-
-CLASSIFIER_PARAMS = {'cdpq': {
-    "DT":       {'classifier__class_weight': None, 'classifier__criterion': 'gini', 'classifier__max_depth': 1, 'classifier__splitter': 'random'},
-    "KNN":      {'classifier__algorithm': 'auto', 'classifier__n_neighbors': 7, 'classifier__p': 1, 'classifier__weights': 'uniform'},
-    "LR":       {'classifier__C': np.float64(0.21), 'classifier__class_weight': 'balanced', 'classifier__fit_intercept': True},
-    "MLP":      {'classifier__activation': 'relu', 'classifier__alpha': 0.0001, 'classifier__hidden_layer_sizes': (100, 50), 'classifier__learning_rate': 'constant', 'classifier__solver': 'sgd'},
-    "RF":       {'classifier__class_weight': 'balanced_subsample', 'classifier__criterion': 'gini', 'classifier__max_depth': 4, 'classifier__n_estimators': 100},
-    "SGD":      {'classifier__alpha': 0.01, 'classifier__class_weight': 'balanced', 'classifier__fit_intercept': True, 'classifier__loss': 'log_loss', 'classifier__penalty': 'l1'},
-    "SVM":      {'classifier__C': np.float64(1.41), 'classifier__class_weight': 'balanced', 'classifier__degree': 3, 'classifier__gamma': 'scale', 'classifier__kernel': 'poly'}
-    }, 'hypor': {
-    "DT":       {'classifier__class_weight': 'balanced', 'classifier__criterion': 'gini', 'classifier__max_depth': 3, 'classifier__splitter': 'random'},
-    "KNN":      {'classifier__algorithm': 'ball_tree', 'classifier__n_neighbors': 13, 'classifier__p': 1, 'classifier__weights': 'uniform'},
-    "LR":       {'classifier__C': np.float64(0.81), 'classifier__class_weight': None, 'classifier__fit_intercept': True},
-    "MLP":      {'classifier__activation': 'relu', 'classifier__alpha': 0.001, 'classifier__hidden_layer_sizes': (50, 50), 'classifier__learning_rate': 'constant', 'classifier__solver': 'adam'},
-    "RF":       {'classifier__class_weight': None, 'classifier__criterion': 'gini', 'classifier__max_depth': None, 'classifier__n_estimators': 100},
-    "SGD":      {'classifier__alpha': 0.01, 'classifier__class_weight': 'balanced', 'classifier__fit_intercept': True, 'classifier__loss': 'modified_huber', 'classifier__penalty': 'l1'},
-    "SVM":      {'classifier__C': np.float64(1.41), 'classifier__class_weight': None, 'classifier__degree': 1, 'classifier__gamma': 'scale', 'classifier__kernel': 'rbf'}
-    }, 'cdpq_subset': {
-    "DT":       {'classifier__class_weight': 'balanced', 'classifier__criterion': 'gini', 'classifier__max_depth': None, 'classifier__splitter': 'random'},
-    "KNN":      {'classifier__algorithm': 'brute', 'classifier__n_neighbors': 19, 'classifier__p': 2, 'classifier__weights': 'uniform'},
-    "LR":       {'classifier__C': np.float64(0.61), 'classifier__class_weight': 'balanced', 'classifier__fit_intercept': True},
-    "MLP":      {'classifier__activation': 'relu', 'classifier__hidden_layer_sizes': (50,), 'classifier__solver': 'adam'},
-    "RF":       {'classifier__class_weight': None, 'classifier__criterion': 'gini', 'classifier__max_depth': None, 'classifier__n_estimators': 50},
-    "SGD":      {'classifier__alpha': 0.01, 'classifier__class_weight': 'balanced', 'classifier__fit_intercept': True, 'classifier__loss': 'log_loss', 'classifier__penalty': 'l1'},
-    "SVM":      {'classifier__C': np.float64(1.21), 'classifier__class_weight': 'balanced', 'classifier__degree': 3, 'classifier__gamma': 'scale', 'classifier__kernel': 'poly'}
-    }
 }
 
 CLASSIFIER_GRIDS = {
